@@ -248,6 +248,9 @@ export const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
   { key: 'ingredients', label: 'Ingredients', icon: 'kitchen' },
   // Airtime vouchers and anything else that is sold but is not food
   { key: 'other', label: 'Airtime & Other', icon: 'sell' },
-]
+    // Fabric shop additions
+    { key: 'fabric', label: 'Fabric', icon: 'text_fields' },
+    { key: 'notions', label: 'Notions', icon: 'thimbles' }
+  ]
 
 export const categoryLabel = (key: CategoryKey) => CATEGORIES.find((c) => c.key === key)?.label ?? key

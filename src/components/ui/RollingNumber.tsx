@@ -95,7 +95,9 @@ function Digit({ char, style }: { char: string; style?: StyleProp<TextStyle> }) 
    */
   const base = lineHeightOf(style)
   const [measured, setMeasured] = useState(0)
-  const lineHeight = measured || Math.ceil(base * fontScale)
+  // Exact, never rounded: the strip moves by digit × lineHeight, so any rounding error
+  // multiplies with the digit and pushes 7s, 8s and 9s off the baseline
+  const lineHeight = measured || base * fontScale
 
   useEffect(() => {
     if (reduced) {
@@ -122,7 +124,7 @@ function Digit({ char, style }: { char: string; style?: StyleProp<TextStyle> }) 
             onLayout={
               i === 0
                 ? (e) => {
-                    const h = Math.ceil(e.nativeEvent.layout.height)
+                    const h = e.nativeEvent.layout.height
                     if (h > 0 && h !== measured) setMeasured(h)
                   }
                 : undefined

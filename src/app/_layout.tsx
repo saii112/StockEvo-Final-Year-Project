@@ -93,18 +93,20 @@ function RootNavigator() {
   // Onboarding has not run on this account yet. Signed out there is no store,
   // and the guard below already covers that case.
   const needsOnboarding = !!store && store.state.onboardedAt == null;
+  // Explicit, because expo-router's default target is the first unguarded file
+  // route, and "privacy" (outside every guard) can win that, e.g. right after Verify.
+  const home = needsOnboarding ? '/onboarding' : '/';
 
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={signedIn}>
+        <Stack.Protected guard={signedIn} redirectTo="/sign-in">
           {/* Nested so onboarding is the only reachable screen until it is
-              finished or skipped; a denied navigation lands on it because it is
-              then the first screen in the stack. */}
-          <Stack.Protected guard={needsOnboarding}>
+              finished or skipped. */}
+          <Stack.Protected guard={needsOnboarding} redirectTo="/">
             <Stack.Screen name="onboarding" />
           </Stack.Protected>
-          <Stack.Protected guard={!needsOnboarding}>
+          <Stack.Protected guard={!needsOnboarding} redirectTo="/onboarding">
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="products/index" options={{ ...pageHeader, title: 'Products' }} />
             <Stack.Screen name="products/[id]" options={pageHeader} />
@@ -115,7 +117,7 @@ function RootNavigator() {
             <Stack.Screen name="stock-in" options={{ ...pageHeader, title: 'Stock came in' }} />
           </Stack.Protected>
         </Stack.Protected>
-        <Stack.Protected guard={!signedIn}>
+        <Stack.Protected guard={!signedIn} redirectTo={home}>
           {/* Both routes render the same swipeable pager (AuthPager), so
               moving between Sign in and Create account happens inside it, not
               here. The fade only covers arriving from elsewhere — e.g. Verify's

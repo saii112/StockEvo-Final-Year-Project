@@ -216,5 +216,6 @@ export function emptyShop(now = Date.now()): AppState {
     queue: [],
     lastSyncedAt: 0,
     onboardedAt: null,
+    walkthroughShown: false,
   }
 }

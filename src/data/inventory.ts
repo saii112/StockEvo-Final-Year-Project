@@ -214,3 +214,79 @@ export function recommendations(s: AppState, now = Date.now()): Recommendation[]
 }
 
 export const purchaseTotal = (p: { lines: { qty: number; unitPrice: number }[] }) => p.lines.reduce((t, l) => t + l.qty * l.unitPrice, 0)
+
+/** Theft detection: flag when stock drops significantly without corresponding sales. */
+export type TheftAlert = {
+  productId: string
+  productName: string
+  expectedStock: number
+  actualStock: number
+  discrepancy: number
+  severity: 'low' | 'medium' | 'high'
+  at: number
+}
+
+/** Check for potential theft by comparing expected vs actual stock changes. */
+export function detectTheft(s: AppState, now = Date.now()): TheftAlert[] {
+  const alerts: TheftAlert[] = []
+  const salesSince = (start: number) => s.sales.filter((x) => x.at >= start)
+
+  // Look at each day in the last 7 days for suspicious stock drops
+  const DAY = 86_400_000
+  for (let i = 1; i <= 7; i++) {
+    const dayStart = now - i * DAY
+    const dayEnd = now - (i - 1) * DAY
+    const daySales = salesSince(dayStart).filter((x) => x.at < dayEnd)
+
+    // Calculate total qty sold per product this day
+    const soldThisDay = new Map<string, number>()
+    for (const sale of daySales) {
+      for (const [id, n] of deductionsFor(s, sale.lines)) {
+        soldThisDay.set(id, (soldThisDay.get(id) ?? 0) + n)
+      }
+    }
+
+    // Check products that had stock changes (via purchases or sales)
+    const allProductIds = new Set([...s.products.map((p) => p.id), ...s.purchases.flight?.((p) => p.lines?.flatMap((l) => l.productId)) ?? []])
+    // Actually let's just check all products
+    for (const p of s.products) {
+      if (p.untracked || p.composite) continue
+
+      // Expected stock change from sales only
+      const expectedDeduction = soldThisDay.get(p.id) ?? 0
+
+      // Check current stock vs what we'd expect
+      const recentPurchases = s.purchases
+        .filter((x) => x.at >= dayStart && x.at < dayEnd && x.status === 'delivered')
+        .reduce((sum, p) => sum + p.lines.reduce((s, l) => s + l.qty, 0), 0)
+
+      // If stock is significantly lower than expected (no recent full count)
+      const lastCount = p.lastCountAt ?? s.onboardedAt ?? 0
+      const daysSinceCount = lastCount ? (now - lastCount) / DAY : 999
+
+      // Only flag if it's been a while since a count AND stock is low unexpectedly
+      if (daysSinceCount > 1 && p.stock < expectedDeduction) {
+              const discrepancy = expectedDeduction - p.stock
+              let severity: 'low' | 'medium' | 'high' = 'low'
+              if (discrepancy > 50) severity = 'high'
+              else if (discrepancy > 20) severity = 'medium'
+
+        alerts.push({
+          productId: p.id,
+          productName: p.name,
+          expectedStock: expectedDeduction,
+          actualStock: p.stock,
+          discrepancy,
+          severity,
+          at: dayStart,
+        })
+      }
+    }
+  }
+
+  // Sort by severity then discrepancy
+  return alerts.sort((a, b) => {
+    const order = { low: 1, medium: 2, high: 3 }
+    return order[b.severity] - order[a.severity] || b.discrepancy - a.discrepancy
+  })
+}

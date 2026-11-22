@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.stockevo.app",
-      "permissions": [
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
     },

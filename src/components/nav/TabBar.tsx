@@ -71,7 +71,7 @@ function barBottom(insetBottom: number) {
  * clipped to the tile. So the yellow travels *with* the tile instead of jumping
  * ahead of it, and every frame is a transform on the UI thread.
  */
-export default function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
+export default function TabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const [track, setTrack] = useState({ width: 0, height: 0 })
 
   // Only the five main tabs, in spec order, and only those that exist as routes
@@ -128,13 +128,13 @@ export default function TabBar({ state, descriptors, emitter, navigateToTab, ins
             const { options } = descriptors[t.r.key]
 
             const onPress = () => {
-              const event = emitter.emit({
+              const event = navigation.emit({
                 type: 'tabPress',
                 target: t.r.key,
                 canPreventDefault: true,
               })
               if (!focused && !event.defaultPrevented) {
-                navigateToTab(t.r.key)
+                navigation.navigate(t.r.name, t.r.params)
               }
             }
 
@@ -142,7 +142,7 @@ export default function TabBar({ state, descriptors, emitter, navigateToTab, ins
               <Pressable
                 key={t.r.key}
                 onPress={onPress}
-                onLongPress={() => emitter.emit({ type: 'tabLongPress', target: t.r.key })}
+                onLongPress={() => navigation.emit({ type: 'tabLongPress', target: t.r.key })}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: focused }}
                 accessibilityLabel={options.tabBarAccessibilityLabel ?? t.label}

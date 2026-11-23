@@ -1,4 +1,10 @@
-export type CategoryKey = 'bakery' | 'dairy' | 'pantry' | 'hot' | 'beverages' | 'ingredients' | 'other'
+export type CategoryKey =
+  | 'bakery' | 'dairy' | 'pantry' | 'hot' | 'beverages' | 'ingredients' | 'other'
+  // fabric shop
+  | 'fabric' | 'notions'
+
+/** The kind of business, which picks its bundle (src/bundles). */
+export type BusinessKey = 'spaza' | 'fabric'
 
 export type RecipeLine = { productId: string; qty: number }
 
@@ -88,6 +94,7 @@ export type Product = {
  */
 export type Family = 'bread' | 'airtime' | 'colddrink'
 
+/** A spaza's Sell groups (src/bundles/spaza.ts). Screens ask `bundleFor(state).families`. */
 export const FAMILIES: { key: Family; label: string; icon: string }[] = [
   { key: 'bread', label: 'Bread', icon: 'bakery_dining' },
   { key: 'airtime', label: 'Airtime', icon: 'sell' },
@@ -190,6 +197,8 @@ export type Profile = { ownerName: string; storeName: string; role: string; memb
 
 export type AppState = {
   version: 1
+  /** What kind of shop this is, which picks its bundle. Absent = spaza (every shop before the choice existed). */
+  business?: BusinessKey
   products: Product[]
   suppliers: Supplier[]
   prices: SupplierPrice[]
@@ -238,6 +247,7 @@ export type AppState = {
 
 export type VoidedSale = Sale & { voidedAt: number }
 
+/** A spaza's categories (src/bundles/spaza.ts). Screens ask `bundleFor(state).categories`. */
 export const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
   { key: 'bakery', label: 'Bakery', icon: 'bakery_dining' },
   { key: 'dairy', label: 'Dairy & Eggs', icon: 'egg' },
@@ -248,9 +258,4 @@ export const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
   { key: 'ingredients', label: 'Ingredients', icon: 'kitchen' },
   // Airtime vouchers and anything else that is sold but is not food
   { key: 'other', label: 'Airtime & Other', icon: 'sell' },
-    // Fabric shop additions
-    { key: 'fabric', label: 'Fabric', icon: 'text_fields' },
-    { key: 'notions', label: 'Notions', icon: 'thimbles' }
-  ]
-
-export const categoryLabel = (key: CategoryKey) => CATEGORIES.find((c) => c.key === key)?.label ?? key
+]

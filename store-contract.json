@@ -36,6 +36,7 @@
   ],
   "AppState": [
     "budget",
+    "business?",
     "lastCountAt?",
     "lastSyncedAt",
     "onboardedAt?",

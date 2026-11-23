@@ -47,8 +47,8 @@ export function productMeta(p: Product) {
  * Supabase ids are uuids, the screens' own ids are not ("white-bread", "menu-x7k2").
  * Gives every product a uuid and rewrites everything that points at it.
  */
-export function uuidify(state: Pick<AppState, 'products' | 'prices' | 'preferred'>) {
-  const ids = new Map(state.products.map((p) => [p.id, newId()]))
+export function uuidify(state: Pick<AppState, 'products' | 'prices' | 'preferred'>, make: () => string = newId) {
+  const ids = new Map(state.products.map((p) => [p.id, make()]))
   const swap = (id: string) => ids.get(id) ?? id
   return {
     ids,

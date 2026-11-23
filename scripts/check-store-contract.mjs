@@ -46,7 +46,7 @@ for (const name of Object.keys(current)) {
 }
 if (bad) {
   console.error(
-    "\nThe useStore() contract moved. Tell the backend owner, implement it in src/data/sqliteStore.tsx,\nthen run: node scripts/check-store-contract.mjs --update",
+    "\nThe useStore() contract moved. Tell the backend owner: a new action goes in src/store.tsx once, and if it\nneeds its own write, a Change for src/data/sqliteStore.tsx. Then run: node scripts/check-store-contract.mjs --update",
   );
   process.exit(1);
 }

@@ -7,7 +7,8 @@ import type { AppState, CategoryKey, Family, PaymentMethod, Portion, Product, Pr
 import { QUICK_AMOUNT_ID } from './types'
 import { deductionsFor, productById, recipeCost, stockItems } from './inventory'
 import { createSeedState } from './seed'
-import { buildStarterCatalogue, isStandardKota, kitchenIngredient, kitchenRecipe, KOTA_BUILDS, type KitchenAnswers, type StarterSelection } from './starterPacks'
+import { bundleFor } from '../bundles'
+import { isStandardKota, kitchenIngredient, kitchenRecipe, KOTA_BUILDS, type KitchenAnswers, type StarterSelection } from './starterPacks'
 import type { BackupStatus } from '../lib/cloudBackup'
 
 export type Result = { ok: true; message: string } | { ok: false; message: string }
@@ -518,15 +519,8 @@ export function cancelPurchase(s: AppState, id: string): AppState {
   )
 }
 
-const iconByCategory: Record<CategoryKey, string> = {
-  bakery: 'bakery_dining',
-  dairy: 'egg',
-  pantry: 'grain',
-  hot: 'lunch_dining',
-  beverages: 'local_bar',
-  ingredients: 'kitchen',
-  other: 'sell',
-}
+const iconFor = (s: AppState, category: CategoryKey) =>
+  bundleFor(s).categories.find((c) => c.key === category)?.icon ?? 'inventory_2'
 
 const packLabelFor = (packSize: number, unit: string, packName?: string) =>
   packSize === 1 ? `single ${unit}` : `${packName?.trim().toLowerCase() || 'pack'} of ${packSize}`
@@ -547,7 +541,7 @@ export function createProduct(s: AppState, input: ProductInput): Product {
     name: input.name.trim(),
     detail: input.detail?.trim() || 'Added by you',
     category: input.category,
-    icon: iconByCategory[input.category],
+    icon: iconFor(s, input.category),
     sellable: true,
     price: Math.max(0, input.price),
     cost: Math.max(0, input.cost ?? 0),
@@ -584,7 +578,7 @@ export function updateProduct(s: AppState, id: string, input: ProductInput): App
               name: input.name.trim(),
               detail: input.detail?.trim() || p.detail,
               category: input.category,
-              icon: iconByCategory[input.category],
+              icon: iconFor(s, input.category),
               price: Math.max(0, input.price),
               cost: input.cost === undefined ? p.cost : Math.max(0, input.cost),
               // Editing a product never touches its stock: that changes through
@@ -650,7 +644,7 @@ export function applyStarterPacks(
   return queued(
     {
       ...s,
-      products: withCounts(buildStarterCatalogue(sel), counts),
+      products: withCounts(bundleFor(s).catalogue(sel), counts),
       suppliers: [],
       prices: [],
       sales: [],

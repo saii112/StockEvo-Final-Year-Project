@@ -41,6 +41,10 @@ export function productMeta(p: Product) {
   if (p.template) meta.template = p.template
   if (p.recipeChecked !== undefined) meta.recipeChecked = p.recipeChecked
   if (p.barcodes?.length) meta.barcodes = p.barcodes
+  if (p.soldBy) meta.soldBy = p.soldBy
+  if (p.minCut !== undefined) meta.minCut = p.minCut
+  if (p.cutStep !== undefined) meta.cutStep = p.cutStep
+  if (p.widthCm !== undefined) meta.widthCm = p.widthCm
   return meta
 }
 

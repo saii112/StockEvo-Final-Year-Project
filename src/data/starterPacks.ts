@@ -22,7 +22,7 @@ import { CATEGORIES } from './types'
 import { recipeCost } from './inventory'
 
 /** A product before it becomes one: no icon (derived) and no stock (always 0). */
-type Template = {
+export type Template = {
   id: string
   name: string
   detail: string
@@ -43,9 +43,16 @@ type Template = {
   priceOptions?: number[]
   untracked?: boolean
   portion?: Portion
+  /** Cut and sold by the metre: see Product.soldBy. */
+  soldBy?: 'length'
+  minCut?: number
+  cutStep?: number
 }
 
-export type PackKey = 'drinks' | 'snacks' | 'bread' | 'groceries' | 'sweets' | 'airtime' | 'kotas'
+export type PackKey =
+  | 'drinks' | 'snacks' | 'bread' | 'groceries' | 'sweets' | 'airtime' | 'kotas'
+  // fabric shop (src/bundles/fabric.ts)
+  | 'fabrics' | 'lining' | 'haberdashery' | 'trims'
 
 export type StarterPack = {
   key: PackKey
@@ -277,6 +284,13 @@ export type StarterSelection = {
   extras?: ExtraItem[]
   /** How the kitchen makes its kotas; sets the recipe amounts. */
   kitchen?: KitchenAnswers
+  /**
+   * Fabric shops: per material name ("Cotton"), the price per metre and smallest cut the owner
+   * set. Applies to every colour of it. Absent keeps the starter numbers.
+   */
+  materials?: Record<string, { price?: number; minCut?: number }>
+  /** Fabric shops: colours the owner added to a material in setup ("Add colour"), by material name. */
+  colours?: Record<string, string[]>
 }
 
 export type ExtraItem = { name: string; price: number }
@@ -431,6 +445,7 @@ function toProduct(t: Template): Product {
     ...(t.priceOptions ? { priceOptions: t.priceOptions } : {}),
     ...(t.untracked ? { untracked: true } : {}),
     ...(t.portion ? { portion: t.portion } : {}),
+    ...(t.soldBy ? { soldBy: t.soldBy, minCut: t.minCut, cutStep: t.cutStep } : {}),
     template: t.id,
   }
 }
@@ -443,14 +458,14 @@ function toProduct(t: Template): Product {
  * cut from are one product — so the first template to claim an id wins and the
  * rest are dropped.
  */
-export function buildStarterCatalogue(sel: StarterSelection): Product[] {
+export function buildStarterCatalogue(sel: StarterSelection, packs: StarterPack[] = PACKS): Product[] {
   const byId = new Map<string, Product>()
   const add = (t: Template) => {
     if (!byId.has(t.id)) byId.set(t.id, toProduct(t))
   }
 
   const excluded = new Set(sel.exclude ?? [])
-  for (const pack of PACKS) {
+  for (const pack of packs) {
     if (sel.packs.includes(pack.key)) pack.products.filter((t) => !excluded.has(t.id)).forEach(add)
   }
   ;(sel.extras ?? []).filter((e) => e.name.trim()).forEach((e, i) => add(extraTemplate(e, i)))

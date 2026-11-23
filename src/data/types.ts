@@ -1,7 +1,7 @@
 export type CategoryKey =
   | 'bakery' | 'dairy' | 'pantry' | 'hot' | 'beverages' | 'ingredients' | 'other'
   // fabric shop
-  | 'fabric' | 'notions'
+  | 'fabric' | 'lining' | 'notions' | 'trims' | 'offcuts'
 
 /** The kind of business, which picks its bundle (src/bundles). */
 export type BusinessKey = 'spaza' | 'fabric'
@@ -91,7 +91,24 @@ export type Product = {
    * scan is `packSize` units. One code belongs to one product per shop.
    */
   barcodes?: Barcode[]
+  /**
+   * 'length': cut and sold by the metre (fabric, trims). The sale line's qty is the length, and
+   * `variant` is the material, `size` the colour. Absent = sold by the piece.
+   */
+  soldBy?: 'each' | 'length'
+  /** Length only: the smallest cut in metres (0.5). Below it the counter warns, never refuses. */
+  minCut?: number
+  /** Length only: what the length pad steps in (0.1 m = one decimal). */
+  cutStep?: number
+  /** Fabric width in cm, shown on the tile. */
+  widthCm?: number
 }
+
+/**
+ * "Make offcut": metres moved off a fabric into the Offcuts item. `value` is what those metres
+ * cost the shop (metres × the fabric's cost then), which Profit shows as written down.
+ */
+export type Offcut = { id: string; at: number; fabricId: string; offcutId: string; metres: number; pieces: number; value: number }
 
 export type Barcode = { code: string; pack: boolean }
 
@@ -103,13 +120,19 @@ export type UnlinkedBarcode = { code: string; at: number }
  * shop may sell kotas, burgers, both, or call it all "Menu", so those groups
  * are named by the owner (`Product.menu`), not by the app.
  */
-export type Family = 'bread' | 'airtime' | 'colddrink'
+export type Family = 'bread' | 'airtime' | 'colddrink' | 'fabric' | 'trims'
+
+/**
+ * A Sell group's definition. `levels` is how many steps its picker has: bread is brand only (1);
+ * cold drink is brand → size, airtime network → amount, fabric material → colour (2).
+ */
+export type FamilyDef = { key: Family; label: string; icon: string; levels: 1 | 2 }
 
 /** A spaza's Sell groups (src/bundles/spaza.ts). Screens ask `bundleFor(state).families`. */
-export const FAMILIES: { key: Family; label: string; icon: string }[] = [
-  { key: 'bread', label: 'Bread', icon: 'bakery_dining' },
-  { key: 'airtime', label: 'Airtime', icon: 'sell' },
-  { key: 'colddrink', label: 'Cold drink', icon: 'local_drink' },
+export const FAMILIES: FamilyDef[] = [
+  { key: 'bread', label: 'Bread', icon: 'bakery_dining', levels: 1 },
+  { key: 'airtime', label: 'Airtime', icon: 'sell', levels: 2 },
+  { key: 'colddrink', label: 'Cold drink', icon: 'local_drink', levels: 2 },
 ]
 
 export type Supplier = { id: string; name: string; location?: string; contact?: string }
@@ -256,6 +279,8 @@ export type AppState = {
   voidedSales?: VoidedSale[]
   /** Scanned codes sold with no product behind them, newest first. Absent = none. */
   unlinkedBarcodes?: UnlinkedBarcode[]
+  /** Offcuts made, oldest first (fabric shops). Absent = none. */
+  offcuts?: Offcut[]
 }
 
 export type VoidedSale = Sale & { voidedAt: number }

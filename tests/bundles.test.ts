@@ -12,7 +12,7 @@ describe('bundleFor', () => {
     const s = createSeedState()
     expect(s.business).toBeUndefined()
     expect(bundleFor(s).key).toBe('spaza')
-    expect(bundleFor(s).recipes).toBe(true)
+    expect(bundleFor(s).has('recipes')).toBe(true)
   })
 
   it('shows stock health in the bundle’s own categories', () => {

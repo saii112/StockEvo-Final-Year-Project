@@ -37,6 +37,11 @@ export async function insertProduct(tx, p, now) {
     ...(p.template ? { template: p.template } : {}),
     ...(p.recipeChecked !== undefined ? { recipeChecked: p.recipeChecked } : {}),
     ...(p.barcodes?.length ? { barcodes: p.barcodes } : {}),
+    // Sold by the metre (fabric): see Product.soldBy
+    ...(p.soldBy ? { soldBy: p.soldBy } : {}),
+    ...(p.minCut !== undefined ? { minCut: p.minCut } : {}),
+    ...(p.cutStep !== undefined ? { cutStep: p.cutStep } : {}),
+    ...(p.widthCm !== undefined ? { widthCm: p.widthCm } : {}),
   };
   const row = {
     id: p.id,

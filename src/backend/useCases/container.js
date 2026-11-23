@@ -65,6 +65,8 @@ import {
   createSetRestockDayUseCase,
   createMarkOnboardedUseCase,
   createSaveUnlinkedBarcodesUseCase,
+  createSetBusinessUseCase,
+  createSaveOffcutsUseCase,
 } from "./settings";
 import {
   createSavePurchaseOrdersUseCase,
@@ -189,6 +191,8 @@ const rawUseCases = {
   setRestockDay: createSetRestockDayUseCase({ deviceSettingsRepository }),
   markOnboarded: createMarkOnboardedUseCase({ deviceSettingsRepository }),
   saveUnlinkedBarcodes: createSaveUnlinkedBarcodesUseCase({ deviceSettingsRepository }),
+  setBusiness: createSetBusinessUseCase({ deviceSettingsRepository }),
+  saveOffcuts: createSaveOffcutsUseCase({ deviceSettingsRepository }),
   savePurchaseOrders: createSavePurchaseOrdersUseCase({
     purchaseOrderRepository,
   }),

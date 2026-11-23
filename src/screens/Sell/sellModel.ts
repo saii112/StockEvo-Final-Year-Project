@@ -7,6 +7,7 @@ import {
   FAMILIES,
   QUICK_AMOUNT_ID,
   type Family,
+  type FamilyDef,
   type PaymentMethod,
   type Product,
   type Sale,
@@ -31,6 +32,8 @@ export type GroupTile = {
   members: Product[]
   family?: Family
   menu?: string
+  /** Picker steps: 1 = pick the item, 2 = brand/material first, then size/amount/colour. */
+  levels: 1 | 2
 }
 
 export type Tile = { kind: 'single'; id: string; product: Product } | GroupTile | { kind: 'quick'; id: typeof QUICK_AMOUNT_ID }
@@ -46,20 +49,20 @@ export const tileIdFor = (p: Product) => (p.family ? familyTileId(p.family) : p.
  * one per built-in family and per owner-named menu group that has anything in
  * it, and the quick-amount tile. Ingredients (not sellable) never get a tile.
  */
-export function buildTiles(products: Product[]): Tile[] {
+export function buildTiles(products: Product[], families: FamilyDef[] = FAMILIES): Tile[] {
   const sellable = products.filter((p) => p.sellable)
   const tiles: Tile[] = sellable
     .filter((p) => !p.family && !p.menu)
     .map((p) => ({ kind: 'single', id: p.id, product: p }))
-  for (const f of FAMILIES) {
+  for (const f of families) {
     const members = sellable.filter((p) => p.family === f.key)
-    if (members.length) tiles.push({ kind: 'group', id: familyTileId(f.key), label: f.label, icon: f.icon, members, family: f.key })
+    if (members.length) tiles.push({ kind: 'group', id: familyTileId(f.key), label: f.label, icon: f.icon, members, family: f.key, levels: f.levels })
   }
   // Menu groups are whatever names the owner has typed, in the order first seen
   const names = [...new Set(sellable.filter((p) => !p.family && p.menu).map((p) => p.menu!))]
   for (const name of names) {
     const members = sellable.filter((p) => !p.family && p.menu === name)
-    tiles.push({ kind: 'group', id: menuTileId(name), label: name, icon: 'lunch_dining', members, menu: name })
+    tiles.push({ kind: 'group', id: menuTileId(name), label: name, icon: 'lunch_dining', members, menu: name, levels: 1 })
   }
   tiles.push({ kind: 'quick', id: QUICK_AMOUNT_ID })
   return tiles
@@ -126,6 +129,10 @@ export function shortName(p: Product | undefined, price?: number, label?: string
       return `${p.variant} ${p.size === 'can' ? 'can' : p.size}`
     case 'airtime':
       return `${p.variant} ${money(price ?? p.price, { whole: true })}`
+    // Material, colour: "Cotton, Navy"
+    case 'fabric':
+    case 'trims':
+      return p.size ? `${p.variant}, ${p.size}` : p.name
     default:
       return p.name
   }
@@ -139,7 +146,7 @@ export function shortName(p: Product | undefined, price?: number, label?: string
  * One line in a sale being built. Counter-priced items at different prices
  * (airtime R5 vs R29) are separate lines; a fixed-price item is always one line.
  */
-export type DraftLine = { key: string; productId: string; qty: number; price: number; label?: string; counterPriced?: boolean }
+export type DraftLine = { key: string; productId: string; qty: number; price: number; label?: string; counterPriced?: boolean; byLength?: boolean }
 
 /** One add, remembered so Undo can take back exactly that. */
 export type AddEvent = { key: string; qty: number }
@@ -158,6 +165,8 @@ export type AddItem = {
   label?: string
   /** The price was chosen at the counter (airtime amount, quick amount), so it's part of what the line is. */
   counterPriced?: boolean
+  /** Cut by the metre: qty is the length, and the line counts as one item. */
+  byLength?: boolean
 }
 
 /**
@@ -196,7 +205,8 @@ export function undoLast(d: Draft): Draft {
 }
 
 export const draftTotal = (d: Draft) => Math.round(d.lines.reduce((t, l) => t + l.qty * l.price, 0) * 100) / 100
-export const draftCount = (d: Draft) => d.lines.reduce((t, l) => t + l.qty, 0)
+/** Items in the sale. A length line (2.3 m of cotton) is one item. */
+export const draftCount = (d: Draft) => d.lines.reduce((t, l) => t + (l.byLength ? 1 : l.qty), 0)
 
 /**
  * Lines most-recent-first, for the panel's "last 3 lines". Order follows the

@@ -55,7 +55,7 @@ export function readScan(
  * One row of the running list. A product row is keyed by its id; a "Sell without saving" row by
  * its code, and carries the price typed on the quick amount keypad.
  */
-export type ScanLine = { key: string; productId: string; qty: number; price?: number; label?: string }
+export type ScanLine = { key: string; productId: string; qty: number; price?: number; label?: string; byLength?: boolean }
 
 /** Newest first, as the list shows it. */
 export type ScanSession = { lines: ScanLine[]; last: LastRead | null }
@@ -64,8 +64,23 @@ export const emptySession = (): ScanSession => ({ lines: [], last: null })
 
 const toTop = (lines: ScanLine[], line: ScanLine) => [line, ...lines.filter((l) => l.key !== line.key)]
 
+/**
+ * A fabric roll's code: pause scanning and open the length pad for that colour, then addLength.
+ * addHit leaves such a code alone, since a roll scanned is not "1 m".
+ */
+export const needsLength = (hit: BarcodeHit) => hit.product.soldBy === 'length'
+
+/** The length pad's Add, from a scan: metres on that colour's line (merging, like tapping it twice). */
+export function addLength(session: ScanSession, product: Product, metres: number): ScanSession {
+  if (!(metres > 0)) return session
+  const had = session.lines.find((l) => l.key === product.id)
+  const qty = Math.round(((had?.qty ?? 0) + metres) * 1000) / 1000
+  return { ...session, lines: toTop(session.lines, { key: product.id, productId: product.id, qty, byLength: true }) }
+}
+
 /** A known code: one unit, or a pack's worth for a pack code (a 6-pack adds 6). */
 export function addHit(session: ScanSession, hit: BarcodeHit): ScanSession {
+  if (needsLength(hit)) return session
   const add = hit.pack ? Math.max(1, hit.product.packSize) : 1
   const had = session.lines.find((l) => l.key === hit.product.id)
   return {
@@ -94,7 +109,7 @@ export const lineTotal = (l: ScanLine, products: Map<string, Product>) => Math.r
 export const sessionTotal = (s: ScanSession, products: Map<string, Product>) =>
   Math.round(s.lines.reduce((t, l) => t + l.qty * linePrice(l, products), 0) * 100) / 100
 /** For the footer, and "Keep these 5 items in the sale?" on close. */
-export const sessionCount = (s: ScanSession) => s.lines.reduce((n, l) => n + l.qty, 0)
+export const sessionCount = (s: ScanSession) => s.lines.reduce((n, l) => n + (l.byLength ? 1 : l.qty), 0)
 
 /**
  * Complete: every scanned line into the sale on Sell, oldest scan first, merging with what was
@@ -106,7 +121,7 @@ export function sessionToDraft(d: Draft, session: ScanSession, products: Map<str
     const item =
       l.productId === QUICK_AMOUNT_ID
         ? { productId: QUICK_AMOUNT_ID, price: l.price ?? 0, label: l.label, counterPriced: true }
-        : { productId: l.productId, price: products.get(l.productId)?.price ?? 0 }
+        : { productId: l.productId, price: products.get(l.productId)?.price ?? 0, ...(l.byLength ? { byLength: true } : {}) }
     out = addToDraft(out, item, l.qty)
   }
   return out

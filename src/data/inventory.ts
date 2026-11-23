@@ -1,8 +1,9 @@
 import type { AppState, Product, SupplierPrice } from './types'
-import { qty as fmtQty, rand } from '../lib/format'
+import { metres, qty as fmtQty, rand } from '../lib/format'
+import { bundleFor } from '../bundles'
 
 export const DAY = 86_400_000
-/** BR3 thresholds (days of stock left). */
+/** BR3 thresholds (days of stock left). LOW_DAYS and TARGET_DAYS are a spaza's; a shop reads its own from bundleFor(s).stock. */
 export const CRITICAL_DAYS = 1
 export const LOW_DAYS = 4
 /** Restock plans aim to cover this many days of usage. */
@@ -21,6 +22,7 @@ export const nothingToSell = (s: AppState) => !s.products.some((p) => p.sellable
 /** Quantity with unit, showing small kg amounts in grams ("50 g"). */
 export function unitQty(p: Product, n: number) {
   if (p.unit === 'kg' && n < 1) return `${Math.round(n * 1000)} g`
+  if (p.unit === 'm') return metres(n)
   return `${fmtQty(n)} ${n === 1 ? p.unit : p.unitPlural}`
 }
 
@@ -107,7 +109,7 @@ export function healthOf(s: AppState, p: Product, now = Date.now()): Health {
   if (available(s, p) <= 0) return 'out'
   const cover = daysCover(s, p, now)
   if (cover < CRITICAL_DAYS) return 'critical'
-  if (cover < LOW_DAYS) return 'low'
+  if (cover < bundleFor(s).stock.lowDays) return 'low'
   return 'healthy'
 }
 
@@ -179,14 +181,14 @@ export function recommendations(s: AppState, now = Date.now()): Recommendation[]
       const options = pricesFor(s, p.id)
       const cheapest = options[0]
       const chosen = options.find((o) => o.supplierId === s.preferred[p.id]) ?? cheapest
-      const need = Math.max(p.packSize, TARGET_DAYS * usage - p.stock)
+      const need = Math.max(p.packSize, bundleFor(s).stock.restockDays * usage - p.stock)
       const packs = Math.ceil(need / p.packSize - 1e-9)
       const qty = Math.max(chosen?.minOrder ?? 0, Math.round(packs * p.packSize * 100) / 100)
       const unitPrice = chosen?.unitPrice ?? p.cost
       const reasons = [
         `${unitQty(p, p.stock)} left, ${Number.isFinite(cover) ? `about ${cover < 1 ? `${Math.max(1, Math.round(cover * 24))} hours` : `${Math.round(cover)} days`} of stock` : 'no recent usage'}.`,
         `Uses about ${unitQty(p, Math.round(usage * 10) / 10)} a day (last 7 days).`,
-        `Suggested ${unitQty(p, qty)} covers about ${TARGET_DAYS} days.`,
+        `Suggested ${unitQty(p, qty)} covers about ${bundleFor(s).stock.restockDays} days.`,
         cheapest && chosen
           ? chosen.supplierId === cheapest.supplierId
             ? `${supplierName(s, chosen.supplierId)} is the cheapest saved price (${rand(chosen.unitPrice)} per ${p.unit}).`

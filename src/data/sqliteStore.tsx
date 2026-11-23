@@ -183,6 +183,23 @@ export const sqliteShop: MakeStorage = (ctx) => {
             ? errors
             : [...errors, ...(await one('saveUnlinkedBarcodes', () => useCases.saveUnlinkedBarcodes({ list: next.unlinkedBarcodes ?? [] })))],
         )
+      case 'setBusiness':
+        return one('setBusiness', () => useCases.setBusiness({ business: c.business }))
+      // The stock moves as two stock movements with their own reason, not as an edit (which would
+      // log a plain "adjustment"). A first offcut also creates the Offcuts item, at 0
+      case 'offcut':
+        return (async () => {
+          const o = c.offcut
+          const reason = c.undo ? 'offcut_undo' : 'offcut'
+          const sign = c.undo ? -1 : 1
+          const item = next.products.find((p) => p.id === o.offcutId)
+          const isNew = !c.undo && item && !prev.products.some((p) => p.id === item.id)
+          const errors = isNew ? (await persistChange(useCases, prev, { ...prev, products: [...prev.products, { ...item, stock: 0 }] })).errors : []
+          errors.push(...(await one('adjustStock fabric', () => useCases.adjustStock({ productID: o.fabricId, delta: -sign * o.metres, reason }))))
+          errors.push(...(await one('adjustStock offcut', () => useCases.adjustStock({ productID: o.offcutId, delta: sign * o.pieces, reason }))))
+          errors.push(...(await one('saveOffcuts', () => useCases.saveOffcuts({ list: next.offcuts ?? [] }))))
+          return errors
+        })()
       case 'resetDemoData':
         return useCases.claimDevice({ ownerID: ctx.owner, reset: true }).then((r: { success?: boolean; errors?: string[] }) =>
           r.success ? [] : (r.errors ?? ['claimDevice failed']),

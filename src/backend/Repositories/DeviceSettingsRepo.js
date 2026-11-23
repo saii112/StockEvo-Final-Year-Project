@@ -13,6 +13,8 @@ export const SETTINGS_KEYS = {
   lastCountAt: "lastCountAt",
   partialCountAt: "partialCountAt",
   unlinkedBarcodes: "unlinkedBarcodes",
+  business: "business",
+  offcuts: "offcuts",
   ownerId: "owner", // DeviceRepo.setOwner stores the signed-in account under this key
 };
 

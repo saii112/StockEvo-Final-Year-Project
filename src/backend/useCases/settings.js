@@ -76,6 +76,61 @@ export function createSaveUnlinkedBarcodesUseCase({ deviceSettingsRepository }) 
 }
 
 /**
+ * The shop's business type (AppState.business), which picks its bundle. Which keys exist is the
+ * bundles' business (src/bundles); the setBusiness action only ever passes one of them.
+ *
+ * Input:  { business: string }   // "spaza", "fabric"
+ * Output: { success: true, business } | { success: false, errors: string[] }
+ */
+export function createSetBusinessUseCase({ deviceSettingsRepository }) {
+  return async function setBusiness(input) {
+    const business = input?.business;
+    if (typeof business !== "string" || !/^[a-z]{1,32}$/.test(business)) {
+      return { success: false, errors: ["business must be a bundle key"] };
+    }
+    try {
+      await deviceSettingsRepository.setJSON(SETTINGS_KEYS.business, business);
+      return { success: true, business };
+    } catch (error) {
+      return { success: false, errors: [error.message] };
+    }
+  };
+}
+
+/**
+ * Replaces the offcuts made (AppState.offcuts), for Profit's "written down" line. The stock each
+ * one moved is a stock_movements row (reason "offcut"), which syncs like any other.
+ *
+ * Input:  { list: { id, at, fabricId, offcutId, metres, pieces, value }[] }
+ * Output: { success: true, list } | { success: false, errors: string[] }
+ */
+export function createSaveOffcutsUseCase({ deviceSettingsRepository }) {
+  return async function saveOffcuts(input) {
+    const list = input?.list;
+    const num = (n) => Number.isFinite(n);
+    const valid =
+      Array.isArray(list) &&
+      list.every(
+        (o) =>
+          typeof o?.id === "string" &&
+          typeof o.fabricId === "string" &&
+          typeof o.offcutId === "string" &&
+          num(o.at) && num(o.metres) && o.metres > 0 &&
+          Number.isInteger(o.pieces) && o.pieces > 0 && num(o.value),
+      );
+    if (!valid) {
+      return { success: false, errors: ["list must be offcuts with ids, metres, pieces and value"] };
+    }
+    try {
+      await deviceSettingsRepository.setJSON(SETTINGS_KEYS.offcuts, list);
+      return { success: true, list };
+    } catch (error) {
+      return { success: false, errors: [error.message] };
+    }
+  };
+}
+
+/**
  * The day the owner goes shopping.
  *
  * Input:  { day: 0..6 }   // 0 = Sunday

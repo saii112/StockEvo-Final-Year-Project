@@ -33,10 +33,15 @@ export function qty(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
 }
 
-/** loaf → loaves, box → boxes, bottle → bottles; measures stay as they are (2 kg). */
+/** A length: "40 cm" under a metre, "2.3 m" from there. */
+export function metres(n: number) {
+  return Math.abs(n) < 1 && n !== 0 ? `${Math.round(n * 100)} cm` : `${qty(Math.round(n * 1000) / 1000)} m`
+}
+
+/** loaf → loaves, box → boxes, bottle → bottles; measures stay as they are (2 kg, 3 m). */
 export function pluralOf(unit: string) {
   const u = unit.trim().toLowerCase()
-  if (['kg', 'g', 'l', 'ml'].includes(u)) return u
+  if (['kg', 'g', 'l', 'ml', 'm', 'cm'].includes(u)) return u
   if (/(s|x|ch|sh)$/.test(u)) return `${u}es`
   if (/[^aeiou]y$/.test(u)) return `${u.slice(0, -1)}ies`
   if (/f$/.test(u)) return `${u.slice(0, -1)}ves`

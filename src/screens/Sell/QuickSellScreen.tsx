@@ -8,6 +8,7 @@ import { useTabBarSpace } from '../../components/nav/TabBar'
 import ActionToast, { type Toast } from '../../components/ui/ActionToast'
 import PressableScale from '../../components/ui/PressableScale'
 import { useStore } from '../../store'
+import { bundleFor } from '../../bundles'
 import { DEFAULT_SELL_GRID } from '../../data/actions'
 import { QUICK_AMOUNT_ID, type PaymentMethod, type Product } from '../../data/types'
 import { colors, fonts, money, radius, space, type } from '../../theme/tokens'
@@ -127,7 +128,9 @@ export default function QuickSellScreen() {
   const grid = useMemo(() => ({ ...DEFAULT_SELL_GRID, ...store.state.sellGrid }), [store.state.sellGrid])
   const products = useMemo(() => new Map(store.state.products.map((p) => [p.id, p])), [store.state.products])
 
-  const allTiles = useMemo(() => buildTiles(store.state.products), [store.state.products])
+  // The bundle's groups: the same array for as long as the shop's type stays the same
+  const families = bundleFor(store.state).families
+  const allTiles = useMemo(() => buildTiles(store.state.products, families), [store.state.products, families])
   /** Visible tiles in grid order — what edit mode arranges. */
   const ordered = useMemo(
     () => orderTiles(allTiles, grid, tileSales(store.state.sales, store.state.products)),

@@ -1,7 +1,7 @@
 /** Profile analytics shared by the web and mobile apps (on screen and in the PDF report). */
 import type { AppState } from './types'
 import { bundleFor } from '../bundles'
-import { DAY, TARGET_DAYS, daysCover, healthOf, stockItems } from './inventory'
+import { DAY, daysCover, healthOf, stockItems } from './inventory'
 
 export type Analytics = {
   total: number
@@ -25,7 +25,7 @@ export function analyticsOf(state: AppState, now = Date.now()): Analytics {
   const categories = bundleFor(state).categories.map((c) => {
     const ps = state.products.filter((p) => p.category === c.key && healthOf(state, p, now) !== 'setup')
     if (!ps.length) return null
-    const level = Math.round((ps.reduce((t, p) => t + Math.min(1, daysCover(state, p, now) / TARGET_DAYS), 0) / ps.length) * 100)
+    const level = Math.round((ps.reduce((t, p) => t + Math.min(1, daysCover(state, p, now) / bundleFor(state).stock.restockDays), 0) / ps.length) * 100)
     return { name: c.label, icon: c.icon, level }
   })
     .filter((x): x is { name: string; icon: string; level: number } => !!x)

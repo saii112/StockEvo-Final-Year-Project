@@ -13,7 +13,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import NetInfo from '@react-native-community/netinfo'
-import { actions as A, type AppState, type Product, type Purchase, type StoreApi } from './core'
+import { actions as A, type AppState, type Offcut, type Product, type Purchase, type StoreApi } from './core'
 import type { BackupStatus } from './lib/cloudBackup'
 import { uuidify } from './data/sqlitePersist'
 import { localShop } from './data/localShop'
@@ -52,6 +52,9 @@ export type Change =
   | { type: 'resetDemoData' }
   /** Product barcodes (product meta) and/or the unlinked barcodes list moved. */
   | { type: 'barcodes' }
+  | { type: 'setBusiness'; business: string }
+  /** Metres moved off a fabric into the Offcuts item (or back, on undo). The item may be new. */
+  | { type: 'offcut'; offcut: Offcut; undo?: boolean }
 
 /** Where one owner's shop is kept. Made fresh for each owner who signs in. */
 export type ShopStorage = {
@@ -258,6 +261,19 @@ export function ShopStoreProvider({ children, fallback, ownerId = null, storage:
       removeBarcode: (productId, code) => apply(A.removeBarcode(cur(), productId, code), { type: 'barcodes' }),
       noteUnlinkedBarcode: (code) => apply(A.noteUnlinkedBarcode(cur(), code), { type: 'barcodes' }),
       dismissUnlinkedBarcode: (code) => apply(A.dismissUnlinkedBarcode(cur(), code), { type: 'barcodes' }),
+
+      setBusiness: (business) => apply(A.setBusiness(cur(), business), { type: 'setBusiness', business }),
+      updateMaterial: (productId, input) => apply(A.updateMaterial(cur(), productId, input), { type: 'edit' }),
+      makeOffcut: (input) => {
+        const r = A.makeOffcut(cur(), input, newId?.())
+        if (!r.ok || !r.state || !r.offcut) return { ok: false, message: r.message }
+        apply(r.state, { type: 'offcut', offcut: r.offcut })
+        return { ok: true, message: r.message, offcut: r.offcut }
+      },
+      undoOffcut: (offcutId) => {
+        const offcut = cur().offcuts?.find((o) => o.id === offcutId)
+        if (offcut) apply(A.undoOffcut(cur(), offcutId), { type: 'offcut', offcut, undo: true })
+      },
     }
     return api
   }, [storage, commit])

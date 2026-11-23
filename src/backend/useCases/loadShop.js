@@ -134,6 +134,11 @@ export function createLoadShopUseCase({
           ...(typeof m.recipeChecked === "boolean" ? { recipeChecked: m.recipeChecked } : {}),
           // [{ code, pack }], see Product.barcodes
           ...(Array.isArray(m.barcodes) && m.barcodes.length ? { barcodes: m.barcodes } : {}),
+          // Sold by the metre (fabric): see Product.soldBy
+          ...(m.soldBy ? { soldBy: m.soldBy } : {}),
+          ...(Number.isFinite(m.minCut) ? { minCut: m.minCut } : {}),
+          ...(Number.isFinite(m.cutStep) ? { cutStep: m.cutStep } : {}),
+          ...(Number.isFinite(m.widthCm) ? { widthCm: m.widthCm } : {}),
           ...(row.sold_without_recipe > 0
             ? { soldWithoutRecipe: Number(row.sold_without_recipe) }
             : {}),
@@ -206,6 +211,14 @@ export function createLoadShopUseCase({
         : {}),
       ...(settings.sellGrid
         ? { sellGrid: json(settings.sellGrid, undefined) }
+        : {}),
+      // Absent = spaza, like a shop saved before the choice existed
+      ...(typeof json(settings.business, null) === "string"
+        ? { business: json(settings.business, null) }
+        : {}),
+      ...(Array.isArray(json(settings.offcuts, null)) &&
+      json(settings.offcuts, []).length
+        ? { offcuts: json(settings.offcuts, []) }
         : {}),
       ...(Array.isArray(json(settings.unlinkedBarcodes, null)) &&
       json(settings.unlinkedBarcodes, []).length

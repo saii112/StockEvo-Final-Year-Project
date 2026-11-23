@@ -55,7 +55,8 @@ export default function GroupSheet({
   }
 
   const lastProduct = tile ? tile.members.find((m) => m.id === grid.lastUsed[tile.id]) : undefined
-  const twoLevel = tile?.family === 'colddrink' || tile?.family === 'airtime'
+  // From the bundle's group definition: cold drink, airtime, fabric and trims have two steps
+  const twoLevel = tile?.levels === 2
 
   const title = tile
     ? `${variant ? `${tile.label} · ${variant}` : tile.label}${multiplier > 1 ? `  ×${multiplier}` : ''}`
@@ -178,7 +179,7 @@ function Options({
           label: p.size === 'can' ? 'Can' : (p.size ?? p.name),
           detail: money(p.price),
           last: p.id === lastProduct?.id,
-          pick: () => onPick({ productId: p.id, price: p.price }, p),
+          pick: () => onPick({ productId: p.id, price: p.price, ...(p.soldBy === 'length' ? { byLength: true } : {}) }, p),
         })),
       (o) => o.last,
     )

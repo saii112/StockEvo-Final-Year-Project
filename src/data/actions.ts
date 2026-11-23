@@ -3,11 +3,14 @@
  * current state and returns the next one (including its sync-queue entry), so both apps
  * apply exactly the same business rules; only persistence differs per platform.
  */
-import type { AppState, CategoryKey, Family, PaymentMethod, Portion, Product, Profile, Purchase, PurchaseLine, RecipeLine, SaleLine, SellGridSettings, SyncOp } from './types'
+import type { AppState, CategoryKey, Family, Offcut, PaymentMethod, Portion, Product, Profile, Purchase, PurchaseLine, RecipeLine, SaleLine, SellGridSettings, SyncOp } from './types'
 import { QUICK_AMOUNT_ID } from './types'
 import { deductionsFor, productById, recipeCost, stockItems } from './inventory'
 import { createSeedState } from './seed'
-import { bundleFor } from '../bundles'
+import { bundleFor, isBusiness } from '../bundles'
+import { isByLength, materialColours } from '../bundles/capabilities/lengthSale'
+import { findOffcutItem, OFFCUT_TEMPLATE, offcutProduct } from '../bundles/capabilities/offcuts'
+import { metres } from '../lib/format'
 import { barcodeIndex, normalizeBarcode, withBarcodes } from './barcodes'
 import { isStandardKota, kitchenIngredient, kitchenRecipe, KOTA_BUILDS, type KitchenAnswers, type StarterSelection } from './starterPacks'
 import type { BackupStatus } from '../lib/cloudBackup'
@@ -112,6 +115,13 @@ export type StoreApi = {
   /** A scanned code sold with "Sell without saving", for the Unlinked barcodes card. */
   noteUnlinkedBarcode: (code: string) => void
   dismissUnlinkedBarcode: (code: string) => void
+  /** "What kind of shop is this?" and Profile → Type of shop. A Coming soon key does nothing. */
+  setBusiness: (key: string) => void
+  /** Price per metre, smallest cut, step or roll length, on every colour of the product's material. */
+  updateMaterial: (productId: string, input: MaterialInput) => void
+  /** Moves metres off a fabric into the Offcuts item. `offcut.id` is what undoOffcut takes. */
+  makeOffcut: (input: OffcutInput) => Result & { offcut?: Offcut }
+  undoOffcut: (offcutId: string) => void
 }
 
 export type MenuItemInput = {
@@ -565,6 +575,95 @@ export function noteUnlinkedBarcode(s: AppState, raw: string, now = Date.now()):
 export function dismissUnlinkedBarcode(s: AppState, code: string): AppState {
   if (!s.unlinkedBarcodes?.some((u) => u.code === code)) return s
   return { ...s, unlinkedBarcodes: s.unlinkedBarcodes.filter((u) => u.code !== code) }
+}
+
+/**
+ * The shop's business type, from setup or Profile. Products and sales stay; tabs, setup packs and
+ * wording follow the new bundle. A Coming soon type (not a bundle yet) changes nothing.
+ */
+export function setBusiness(s: AppState, key: string): AppState {
+  if (!isBusiness(key) || bundleFor(s).key === key) return s
+  return { ...s, business: key }
+}
+
+/** What belongs to a material rather than one colour: edited on all its colours at once. */
+export type MaterialInput = {
+  /** Rand per metre. */
+  price?: number
+  /** Smallest cut, metres. */
+  minCut?: number
+  /** Length pad step, metres. */
+  cutStep?: number
+  /** Usual roll length, metres: the pack size Stock came in and Restock count in. */
+  rollLength?: number
+}
+
+/** Price per metre, smallest cut, cut step or roll length, on every colour of this product's material. */
+export function updateMaterial(s: AppState, productId: string, input: MaterialInput): AppState {
+  const p = productById(s, productId)
+  if (!p) return s
+  const ids = new Set(materialColours(s, p).map((x) => x.id))
+  const ok = (n: number | undefined) => n !== undefined && Number.isFinite(n) && n > 0
+  const patch: Partial<Product> = {
+    ...(input.price !== undefined && Number.isFinite(input.price) && input.price >= 0 ? { price: input.price } : {}),
+    ...(ok(input.minCut) ? { minCut: input.minCut } : {}),
+    ...(ok(input.cutStep) ? { cutStep: input.cutStep } : {}),
+    ...(ok(input.rollLength) ? { packSize: input.rollLength, packLabel: `roll of ${input.rollLength}` } : {}),
+  }
+  if (!Object.keys(patch).length) return s
+  return queued({ ...s, products: s.products.map((x) => (ids.has(x.id) ? { ...x, ...patch } : x)) }, 'product', 'update')
+}
+
+export type OffcutInput = { fabricId: string; metres: number; pieces?: number }
+
+/**
+ * "Make offcut": moves a short end out of a fabric's metres into the Offcuts item, as pieces.
+ * Not a recipe and not a sale: stock moves from one product to another. The Offcuts item is
+ * created (with `newOffcutId`) the first time a shop without one makes an offcut.
+ */
+export function makeOffcut(
+  s: AppState,
+  input: OffcutInput,
+  newOffcutId: string = OFFCUT_TEMPLATE,
+  now = Date.now(),
+): Result & { state?: AppState; offcut?: Offcut } {
+  const fabric = productById(s, input.fabricId)
+  if (!fabric || !isByLength(fabric)) return { ok: false, message: 'Only something sold by the metre can be cut into offcuts.' }
+  const length = Math.round(input.metres * 1000) / 1000
+  if (!(length > 0)) return { ok: false, message: 'Enter a length above 0 m.' }
+  const pieces = input.pieces ?? 1
+  if (!Number.isInteger(pieces) || pieces < 1) return { ok: false, message: 'Pieces must be a whole number, 1 or more.' }
+
+  const existing = findOffcutItem(s)
+  const item = existing ?? offcutProduct(newOffcutId)
+  const offcut: Offcut = {
+    id: `offcut-${uid()}`,
+    at: now,
+    fabricId: fabric.id,
+    offcutId: item.id,
+    metres: length,
+    pieces,
+    value: Math.round(length * fabric.cost * 100) / 100,
+  }
+  const moved = (p: Product) =>
+    p.id === fabric.id ? { ...p, stock: Math.round((p.stock - length) * 1000) / 1000 } : p.id === item.id ? { ...p, stock: p.stock + pieces } : p
+  const products = [...s.products, ...(existing ? [] : [item])].map(moved)
+  return {
+    ok: true,
+    message: `Offcut made: ${metres(length)} off ${fabric.name}.`,
+    offcut,
+    state: queued({ ...s, products, offcuts: [...(s.offcuts ?? []), offcut] }, 'stock', 'update', now),
+  }
+}
+
+/** Undo on the toast: puts the metres back and takes the pieces off. */
+export function undoOffcut(s: AppState, offcutId: string): AppState {
+  const o = s.offcuts?.find((x) => x.id === offcutId)
+  if (!o) return s
+  const products = s.products.map((p) =>
+    p.id === o.fabricId ? { ...p, stock: Math.round((p.stock + o.metres) * 1000) / 1000 } : p.id === o.offcutId ? { ...p, stock: p.stock - o.pieces } : p,
+  )
+  return queued({ ...s, products, offcuts: s.offcuts!.filter((x) => x.id !== offcutId) }, 'stock', 'update')
 }
 
 export function cancelPurchase(s: AppState, id: string): AppState {

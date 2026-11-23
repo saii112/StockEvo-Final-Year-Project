@@ -3,6 +3,7 @@
  */
 import { dailyUsage, healthOf, pricesFor, stockItems, stockUncounted, supplierName, unitQty, type Health } from '../../data/inventory'
 import type { AppState, Product } from '../../data/types'
+import { bundleFor } from '../../bundles'
 
 /**
  * How soon an item on the list runs out. Critical: out, or gone within a day.
@@ -21,8 +22,9 @@ export function urgencyOf(h: Health): Urgency {
 }
 
 /**
- * How many days the list buys for: the next week, whatever day it is. There is
- * no shopping day to set (a shop's restockDay from before is ignored).
+ * How many days a spaza's list buys for: the next week, whatever day it is. There is
+ * no shopping day to set (a shop's restockDay from before is ignored). Each shop's
+ * own number is bundleFor(s).stock.restockDays (a fabric shop: 30).
  */
 export const LIST_COVERS_DAYS = 7
 
@@ -54,7 +56,7 @@ export type RestockGroup = { supplierId: string; supplier: string; items: Restoc
 export function restockList(s: AppState, now = Date.now()): RestockItem[] {
   // Nothing counted yet: every item reads as empty, and the list would be noise
   if (stockUncounted(s)) return []
-  const horizon = LIST_COVERS_DAYS
+  const horizon = bundleFor(s).stock.restockDays
 
   const out: RestockItem[] = []
   for (const p of stockItems(s)) {

@@ -85,7 +85,18 @@ export type Product = {
    * owner; absent = no status (made before this existed).
    */
   recipeChecked?: boolean
+  /**
+   * Barcodes that scan as this product, in the form normalizeBarcode gives
+   * (src/data/barcodes.ts). `pack`: the code is on a pack (a crate of 24), so one
+   * scan is `packSize` units. One code belongs to one product per shop.
+   */
+  barcodes?: Barcode[]
 }
+
+export type Barcode = { code: string; pack: boolean }
+
+/** A code sold with "Sell without saving", kept until the owner links or dismisses it. `at` = last sold. */
+export type UnlinkedBarcode = { code: string; at: number }
 
 /**
  * The built-in groups. Made-to-order food is deliberately not one of them: a
@@ -243,6 +254,8 @@ export type AppState = {
    * Kept here so there's a record of what was voided and when.
    */
   voidedSales?: VoidedSale[]
+  /** Scanned codes sold with no product behind them, newest first. Absent = none. */
+  unlinkedBarcodes?: UnlinkedBarcode[]
 }
 
 export type VoidedSale = Sale & { voidedAt: number }

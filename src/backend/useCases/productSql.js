@@ -36,6 +36,7 @@ export async function insertProduct(tx, p, now) {
     ...(p.portion ? { portion: p.portion } : {}),
     ...(p.template ? { template: p.template } : {}),
     ...(p.recipeChecked !== undefined ? { recipeChecked: p.recipeChecked } : {}),
+    ...(p.barcodes?.length ? { barcodes: p.barcodes } : {}),
   };
   const row = {
     id: p.id,

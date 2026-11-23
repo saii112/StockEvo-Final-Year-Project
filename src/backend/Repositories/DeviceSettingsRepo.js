@@ -12,6 +12,7 @@ export const SETTINGS_KEYS = {
   restockDay: "restockDay",
   lastCountAt: "lastCountAt",
   partialCountAt: "partialCountAt",
+  unlinkedBarcodes: "unlinkedBarcodes",
   ownerId: "owner", // DeviceRepo.setOwner stores the signed-in account under this key
 };
 

@@ -132,6 +132,8 @@ export function createLoadShopUseCase({
           // Setup's starter item, and the recipe status (see Product in src/data/types.ts)
           ...(m.template ? { template: m.template } : {}),
           ...(typeof m.recipeChecked === "boolean" ? { recipeChecked: m.recipeChecked } : {}),
+          // [{ code, pack }], see Product.barcodes
+          ...(Array.isArray(m.barcodes) && m.barcodes.length ? { barcodes: m.barcodes } : {}),
           ...(row.sold_without_recipe > 0
             ? { soldWithoutRecipe: Number(row.sold_without_recipe) }
             : {}),
@@ -204,6 +206,10 @@ export function createLoadShopUseCase({
         : {}),
       ...(settings.sellGrid
         ? { sellGrid: json(settings.sellGrid, undefined) }
+        : {}),
+      ...(Array.isArray(json(settings.unlinkedBarcodes, null)) &&
+      json(settings.unlinkedBarcodes, []).length
+        ? { unlinkedBarcodes: json(settings.unlinkedBarcodes, []) }
         : {}),
     };
   };

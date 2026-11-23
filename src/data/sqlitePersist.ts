@@ -40,6 +40,7 @@ export function productMeta(p: Product) {
   if (p.portion) meta.portion = p.portion
   if (p.template) meta.template = p.template
   if (p.recipeChecked !== undefined) meta.recipeChecked = p.recipeChecked
+  if (p.barcodes?.length) meta.barcodes = p.barcodes
   return meta
 }
 

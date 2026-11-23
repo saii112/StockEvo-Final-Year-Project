@@ -8,6 +8,7 @@ import { QUICK_AMOUNT_ID } from './types'
 import { deductionsFor, productById, recipeCost, stockItems } from './inventory'
 import { createSeedState } from './seed'
 import { bundleFor } from '../bundles'
+import { barcodeIndex, normalizeBarcode, withBarcodes } from './barcodes'
 import { isStandardKota, kitchenIngredient, kitchenRecipe, KOTA_BUILDS, type KitchenAnswers, type StarterSelection } from './starterPacks'
 import type { BackupStatus } from '../lib/cloudBackup'
 
@@ -105,6 +106,12 @@ export type StoreApi = {
   setPhoto: (productId: string, dataUrl: string) => Promise<Result>
   removePhoto: (productId: string) => void
   resetDemoData: () => void
+  /** Saves a barcode on a product (moving it off any other). Refused when the code isn't valid. */
+  linkBarcode: (productId: string, code: string, pack: boolean) => Result
+  removeBarcode: (productId: string, code: string) => void
+  /** A scanned code sold with "Sell without saving", for the Unlinked barcodes card. */
+  noteUnlinkedBarcode: (code: string) => void
+  dismissUnlinkedBarcode: (code: string) => void
 }
 
 export type MenuItemInput = {
@@ -510,6 +517,55 @@ export function voidSale(s: AppState, saleId: string, now = Date.now()): AppStat
 
 export const setRestockDay = (s: AppState, day: number): AppState =>
   day >= 0 && day <= 6 ? { ...s, restockDay: Math.floor(day) } : s
+
+/** Most unlinked codes kept, so a list nobody clears can't grow forever. */
+export const UNLINKED_BARCODES_MAX = 50
+
+/**
+ * Puts a barcode on a product, single or pack. A code is on one product per shop, so it moves off
+ * any other product (the screen asks "Move it to …?" first, using barcodeIndex), and off the
+ * unlinked list. Linking the same code again just updates single/pack.
+ */
+export function linkBarcode(s: AppState, productId: string, raw: string, pack: boolean): Result & { state?: AppState } {
+  const check = normalizeBarcode(raw)
+  if (!check.ok) return check
+  const { code } = check
+  const target = s.products.find((p) => p.id === productId)
+  if (!target) return { ok: false, message: 'That product is no longer in the shop.' }
+  const was = s.products.find((p) => p.id !== productId && p.barcodes?.some((b) => b.code === code))
+  const products = s.products.map((p) => {
+    const others = (p.barcodes ?? []).filter((b) => b.code !== code)
+    if (p.id === productId) return { ...p, barcodes: [...others, { code, pack }] }
+    return others.length === (p.barcodes?.length ?? 0) ? p : withBarcodes(p, others)
+  })
+  const unlinked = s.unlinkedBarcodes?.filter((u) => u.code !== code)
+  return {
+    ok: true,
+    message: was ? `Barcode moved from ${was.name} to ${target.name}.` : `Barcode saved on ${target.name}.`,
+    state: queued({ ...s, products, ...(unlinked ? { unlinkedBarcodes: unlinked } : {}) }, 'product', 'update'),
+  }
+}
+
+/** Takes one code off a product. */
+export function removeBarcode(s: AppState, productId: string, code: string): AppState {
+  const p = s.products.find((x) => x.id === productId)
+  if (!p?.barcodes?.some((b) => b.code === code)) return s
+  const next = withBarcodes(p, p.barcodes.filter((b) => b.code !== code))
+  return queued({ ...s, products: s.products.map((x) => (x.id === productId ? next : x)) }, 'product', 'update')
+}
+
+/** "Sell without saving": remembers the code for the Unlinked barcodes card, newest first. Not queued: it isn't a sale. */
+export function noteUnlinkedBarcode(s: AppState, raw: string, now = Date.now()): AppState {
+  const check = normalizeBarcode(raw)
+  if (!check.ok || barcodeIndex(s.products).has(check.code)) return s
+  const rest = (s.unlinkedBarcodes ?? []).filter((u) => u.code !== check.code)
+  return { ...s, unlinkedBarcodes: [{ code: check.code, at: now }, ...rest].slice(0, UNLINKED_BARCODES_MAX) }
+}
+
+export function dismissUnlinkedBarcode(s: AppState, code: string): AppState {
+  if (!s.unlinkedBarcodes?.some((u) => u.code === code)) return s
+  return { ...s, unlinkedBarcodes: s.unlinkedBarcodes.filter((u) => u.code !== code) }
+}
 
 export function cancelPurchase(s: AppState, id: string): AppState {
   return queued(

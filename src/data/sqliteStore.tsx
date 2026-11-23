@@ -176,6 +176,13 @@ export const sqliteShop: MakeStorage = (ctx) => {
         return one('updateProfile', () => useCases.updateProfile(c.patch))
       case 'updateSellGrid':
         return one('saveSellGrid', () => useCases.saveSellGrid({ patch: c.patch }))
+      // Product codes are product meta, which edit() diffs; the unlinked list is a device setting
+      case 'barcodes':
+        return edit(prev, next).then(async (errors) =>
+          prev.unlinkedBarcodes === next.unlinkedBarcodes
+            ? errors
+            : [...errors, ...(await one('saveUnlinkedBarcodes', () => useCases.saveUnlinkedBarcodes({ list: next.unlinkedBarcodes ?? [] })))],
+        )
       case 'resetDemoData':
         return useCases.claimDevice({ ownerID: ctx.owner, reset: true }).then((r: { success?: boolean; errors?: string[] }) =>
           r.success ? [] : (r.errors ?? ['claimDevice failed']),

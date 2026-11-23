@@ -50,6 +50,8 @@ export type Change =
   | { type: 'updateProfile'; patch: Arg<'updateProfile'> }
   | { type: 'updateSellGrid'; patch: Arg<'updateSellGrid'> }
   | { type: 'resetDemoData' }
+  /** Product barcodes (product meta) and/or the unlinked barcodes list moved. */
+  | { type: 'barcodes' }
 
 /** Where one owner's shop is kept. Made fresh for each owner who signs in. */
 export type ShopStorage = {
@@ -246,6 +248,16 @@ export function ShopStoreProvider({ children, fallback, ownerId = null, storage:
       updateSellGrid: (patch) => apply(A.updateSellGrid(cur(), patch), { type: 'updateSellGrid', patch }),
 
       resetDemoData: () => storage && apply(storage.fresh(), { type: 'resetDemoData' }),
+
+      linkBarcode: (productId, code, pack) => {
+        const r = A.linkBarcode(cur(), productId, code, pack)
+        if (!r.ok || !r.state) return { ok: false, message: r.message }
+        apply(r.state, { type: 'barcodes' })
+        return { ok: true, message: r.message }
+      },
+      removeBarcode: (productId, code) => apply(A.removeBarcode(cur(), productId, code), { type: 'barcodes' }),
+      noteUnlinkedBarcode: (code) => apply(A.noteUnlinkedBarcode(cur(), code), { type: 'barcodes' }),
+      dismissUnlinkedBarcode: (code) => apply(A.dismissUnlinkedBarcode(cur(), code), { type: 'barcodes' }),
     }
     return api
   }, [storage, commit])

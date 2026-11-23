@@ -51,6 +51,13 @@
           "useSQLCipher": true
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "StockEvo uses the camera to scan product barcodes.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-sharing",
       "expo-status-bar",
       "expo-router",

@@ -64,6 +64,7 @@ import {
   createSaveSellGridUseCase,
   createSetRestockDayUseCase,
   createMarkOnboardedUseCase,
+  createSaveUnlinkedBarcodesUseCase,
 } from "./settings";
 import {
   createSavePurchaseOrdersUseCase,
@@ -187,6 +188,7 @@ const rawUseCases = {
   saveSellGrid: createSaveSellGridUseCase({ deviceSettingsRepository }),
   setRestockDay: createSetRestockDayUseCase({ deviceSettingsRepository }),
   markOnboarded: createMarkOnboardedUseCase({ deviceSettingsRepository }),
+  saveUnlinkedBarcodes: createSaveUnlinkedBarcodesUseCase({ deviceSettingsRepository }),
   savePurchaseOrders: createSavePurchaseOrdersUseCase({
     purchaseOrderRepository,
   }),

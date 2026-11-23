@@ -51,6 +51,31 @@ export function createSaveSellGridUseCase({ deviceSettingsRepository }) {
 }
 
 /**
+ * Replaces the codes sold with "Sell without saving" (AppState.unlinkedBarcodes). Kept on this
+ * phone only, like the Sell grid: it is a to-do list, and every sale itself still syncs.
+ *
+ * Input:  { list: { code: string, at: number }[] }
+ * Output: { success: true, list } | { success: false, errors: string[] }
+ */
+export function createSaveUnlinkedBarcodesUseCase({ deviceSettingsRepository }) {
+  return async function saveUnlinkedBarcodes(input) {
+    const list = input?.list;
+    const valid =
+      Array.isArray(list) &&
+      list.every((u) => typeof u?.code === "string" && /^\d{8,14}$/.test(u.code) && Number.isFinite(u?.at));
+    if (!valid) {
+      return { success: false, errors: ["list must be [{ code, at }] with numeric codes"] };
+    }
+    try {
+      await deviceSettingsRepository.setJSON(SETTINGS_KEYS.unlinkedBarcodes, list);
+      return { success: true, list };
+    } catch (error) {
+      return { success: false, errors: [error.message] };
+    }
+  };
+}
+
+/**
  * The day the owner goes shopping.
  *
  * Input:  { day: 0..6 }   // 0 = Sunday
